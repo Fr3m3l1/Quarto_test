@@ -1,0 +1,24 @@
+---
+title: "Python Quarto Example"
+format: html
+engine: knitr
+---
+
+## Python Data Analysis
+
+```{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = {
+    'Month': ['Jan', 'Feb', 'Mar', 'Apr'],
+    'Sales': [240, 300, 450, 400]
+}
+df = pd.DataFrame(data)
+
+plt.figure(figsize=(8, 4))
+plt.bar(df['Month'], df['Sales'])
+plt.title('Monthly Sales')
+plt.xlabel('Month')
+plt.ylabel('Sales')
+plt.show()
