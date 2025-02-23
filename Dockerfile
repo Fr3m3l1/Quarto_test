@@ -1,8 +1,9 @@
 FROM analythium/r2u-quarto:20.04
 
-# Install system dependencies for Python
+# Install system dependencies with Python development files
 RUN apt-get update && apt-get install -y \
     python3 \
+    python3-dev \
     python3-pip \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
@@ -14,23 +15,29 @@ RUN R -e "install.packages('reticulate')"
 RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /home/app
 
-# Copy both R and Python dependencies first
+# Create Python virtual environment
+RUN python3 -m venv /home/app/venv
+ENV PATH="/home/app/venv/bin:$PATH"
+
+# Copy requirements first for better caching
 COPY shiny/requirements.txt ./
 
-# Install Python packages
+# Install Python packages in virtual environment
 RUN python3 -m pip install --no-cache-dir -U pip && \
     python3 -m pip install --no-cache-dir -r requirements.txt
 
-# Install Jupyter kernel for Python
-RUN python3 -m ipykernel install --user --name=python3
+# Configure reticulate to use the virtual environment
+RUN R -e "reticulate::use_virtualenv('/home/app/venv', required=TRUE)"
 
 # Copy application files
 COPY shiny/ ./
 
-# Set ownership and switch user
 RUN chown -R app:app /home/app
 USER app
 
-EXPOSE 8080
+# Verify Python configuration
+RUN python3 --version && \
+    R -e "reticulate::py_config()"
 
+EXPOSE 8080
 CMD ["quarto", "serve", "index.qmd", "--port", "8080", "--host", "0.0.0.0"]
