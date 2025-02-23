@@ -22,3 +22,9 @@ output$distPlot <- renderPlot({
   hist(x, breaks = bins, col = 'darkgray', border = 'white')
 })
 ```
+
+```{python}
+#| label: pd-example
+import pandas as pd
+print(pd.__version__)
+```
