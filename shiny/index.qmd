@@ -1,5 +1,5 @@
 ---
-title: "Old Faithful"
+title: "Quarto Test"
 execute:
   echo: false
   python: true
