@@ -8,4 +8,7 @@ USER app
 
 EXPOSE 8080
 
+# Clear any existing ENTRYPOINT from the base image
+ENTRYPOINT []
+
 CMD ["quarto", "serve", "index.qmd", "--port", "8080", "--host", "0.0.0.0"]
