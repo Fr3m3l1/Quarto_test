@@ -2,13 +2,10 @@ FROM analythium/r2u-quarto:20.04
 
 RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /home/app
-COPY shiny .
+COPY shiny/index.qmd .
 RUN chown app:app -R /home/app
 USER app
 
 EXPOSE 8080
-
-# Clear any existing ENTRYPOINT from the base image
-ENTRYPOINT []
 
 CMD ["quarto", "serve", "index.qmd", "--port", "8080", "--host", "0.0.0.0"]
