@@ -2,7 +2,7 @@ FROM analythium/r2u-quarto:20.04
 
 RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /home/app
-COPY shiny/index.qmd .
+COPY shiny .
 RUN chown app:app -R /home/app
 USER app
 
