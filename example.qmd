@@ -1,24 +1,24 @@
 ---
-title: "Python Quarto Example"
+title: "Old Faithful"
+execute:
+  echo: false
 format: html
-engine: knitr
+server: shiny
 ---
 
-## Python Data Analysis
+## Test Data Analysis
 
-```{python}
-import pandas as pd
-import matplotlib.pyplot as plt
+```{r}
+sliderInput("bins", "Number of bins:", 
+            min = 1, max = 50, value = 30)
+plotOutput("distPlot")
+```
 
-data = {
-    'Month': ['Jan', 'Feb', 'Mar', 'Apr'],
-    'Sales': [240, 300, 450, 400]
-}
-df = pd.DataFrame(data)
-
-plt.figure(figsize=(8, 4))
-plt.bar(df['Month'], df['Sales'])
-plt.title('Monthly Sales')
-plt.xlabel('Month')
-plt.ylabel('Sales')
-plt.show()
+```{r}
+#| context: server
+output$distPlot <- renderPlot({
+  x <- faithful[, 2]  # Old Faithful Geyser data
+  bins <- seq(min(x), max(x), length.out = input$bins + 1)
+  hist(x, breaks = bins, col = 'darkgray', border = 'white')
+})
+```
