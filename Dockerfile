@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
+# Install R dependencies
+RUN R -e "install.packages('reticulate')"
+
 # Create app user and working directory
 RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /home/app

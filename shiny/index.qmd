@@ -2,6 +2,8 @@
 title: "Old Faithful"
 execute:
   echo: false
+  python: true
+  cache: false
 format: html
 server: shiny
 ---
@@ -24,6 +26,8 @@ output$distPlot <- renderPlot({
 ```
 
 ```{python}
+# Standard Python chunk
+print("Hello from Python!")
 #| label: pd-example
 import pandas as pd
 print(pd.__version__)
