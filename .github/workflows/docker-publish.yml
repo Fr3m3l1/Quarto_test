@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/quarto_test
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/quarto_testing
 
 jobs:
   build-and-push:
