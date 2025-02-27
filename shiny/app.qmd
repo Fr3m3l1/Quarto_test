@@ -13,7 +13,7 @@ library(phyloseq); library(vegan); library(DESeq2); library(plotly)
 
 process_microbiome_data <- function() {
   # Read and preprocess data
-  data <- read.delim("input_data.tsv", row.names=1)
+  data <- read.delim("./ms-project_Excel_output.csv", row.names=1)
   
   # Create phyloseq object
   otu_table <- otu_table(data[, 11:ncol(data)], taxa_are_rows=TRUE)
