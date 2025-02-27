@@ -23,7 +23,7 @@ RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quar
     rm quarto-1.6.42-linux-amd64.deb
 
 # Install required R packages from CRAN and Bioconductor.
-RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan'), repos='http://cran.rstudio.com/')" && \
+RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan', 'phyloseq'), repos='http://cran.rstudio.com/')" && \
     R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='http://cran.rstudio.com/'); BiocManager::install(c('phyloseq', 'DESeq2'))"
 
 # Copy the Quarto file into the container.
