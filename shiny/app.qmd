@@ -1,0 +1,53 @@
+---
+title: "Shiny App with R and Python"
+format: html
+runtime: shiny
+---
+
+```{r}
+library(shiny)
+library(reticulate)
+```
+
+```{py}
+def call_r_with_rpy2():
+    import rpy2.robjects as ro
+    # Use R to paste together a message with a number
+    res = ro.r('paste("Hello from R via rpy2 and Python!", 456)')
+    return res[0]
+```
+
+```{r}
+ui <- fluidPage(
+  titlePanel("Shiny App with R and Python"),
+  sidebarLayout(
+    sidebarPanel(
+      actionButton("btn", "Call Python Function")
+    ),
+    mainPanel(
+      textOutput("result")
+    )
+  )
+)
+```
+
+```{r}
+server <- function(input, output, session) {
+  # Initialize a reactive value to store the Python function result
+  result_val <- reactiveVal("Click the button to run Python code.")
+  
+  observeEvent(input$btn, {
+    # Call the Python function defined above
+    res <- py$call_r_with_rpy2()
+    result_val(res)
+  })
+  
+  output$result <- renderText({
+    result_val()
+  })
+}
+```
+
+```{r}
+shinyApp(ui, server)
+```
