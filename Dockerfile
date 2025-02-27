@@ -28,6 +28,7 @@ RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'pl
 
 # Copy the Quarto file into the container.
 COPY shiny/app.qmd /srv/shiny-server/
+COPY shiny/ms-project_Excel_output.csv /srv/shiny-server/
 
 # Set the working directory.
 WORKDIR /srv/shiny-server/
