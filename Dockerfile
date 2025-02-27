@@ -4,6 +4,9 @@ FROM python:3.9-slim
 # Set environment variable for R library path.
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
 
+# Set reticulate to use the correct Python interpreter.
+ENV RETICULATE_PYTHON=/usr/local/bin/python3
+
 # Install system dependencies: R, R development tools, wget, etc.
 RUN apt-get update && apt-get install -y \
     r-base \
