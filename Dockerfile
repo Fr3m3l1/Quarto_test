@@ -11,9 +11,11 @@ RUN apt-get update && apt-get install -y \
 RUN pip install shiny rpy2
 
 # Download and install Quarto (adjust the version if needed).
-RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.2.313/quarto-1.2.313-linux-amd64.deb && \
-    dpkg -i quarto-1.2.313-linux-amd64.deb && \
-    rm quarto-1.2.313-linux-amd64.deb
+RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quarto-1.6.42-linux-amd64.deb && \
+    dpkg -i quarto-1.6.42-linux-amd64.deb && \
+    rm quarto-1.6.42-linux-amd64.deb
+
+RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown'), repos='http://cran.rstudio.com/')"
 
 # Copy the Quarto file into the container.
 COPY shiny/app.qmd /srv/shiny-server/
