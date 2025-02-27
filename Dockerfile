@@ -1,9 +1,13 @@
 # Use a Python slim base image.
 FROM python:3.9-slim
 
-# Install system dependencies: R, wget, and others.
+# Set environment variable for R library path.
+ENV R_LIBS_USER=/usr/local/lib/R/site-library
+
+# Install system dependencies: R, R development tools, wget, etc.
 RUN apt-get update && apt-get install -y \
     r-base \
+    r-base-dev \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
@@ -15,6 +19,7 @@ RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quar
     dpkg -i quarto-1.6.42-linux-amd64.deb && \
     rm quarto-1.6.42-linux-amd64.deb
 
+# Install required R packages, including jsonlite and rmarkdown.
 RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown'), repos='http://cran.rstudio.com/')"
 
 # Copy the Quarto file into the container.
