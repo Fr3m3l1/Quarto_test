@@ -6,20 +6,29 @@ execute:
   echo: true
 ---
 
+## R Code: Define an R function
+
+```{r}
+# This R function takes a number and returns a message.
+my_r_function <- function(x) {
+  paste("R says the value is:", x)
+}
+```
+
 ```{python}
 from shiny import App, ui, render
 import rpy2.robjects as ro
 
-# This function calls R code via rpy2.
+# This function uses rpy2 to call the R function 'my_r_function'
 def call_r_function():
-    # Execute an R command and return the result.
-    res = ro.r('paste("Hello from R via rpy2 in a Python Shiny app!", 456)')
-    return res[0]
+    # Call the R function defined in the R chunk above with the argument 123.
+    result = ro.r['my_r_function'](123)
+    return result[0]
 
-# Define the user interface.
+# Define the user interface with a header, a button, and a text output.
 app_ui = ui.page_fluid(
     ui.h2("Python Shiny App with Additional R Functionality"),
-    ui.input_action_button("btn", "Call Python Function"),
+    ui.input_action_button("btn", "Call Python Function (which calls R)"),
     ui.output_text_verbatim("result")
 )
 
@@ -31,10 +40,11 @@ def server(input, output, session):
         if input.btn() == 0:
             return "Click the button to run the function."
         else:
-            # Call the Python function which calls R.
+            # Call the Python function that uses rpy2 to invoke the R code.
             return call_r_function()
 
 # Create the Shiny app.
 app = App(app_ui, server)
+
 ```
 
