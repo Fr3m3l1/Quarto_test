@@ -1,53 +1,40 @@
 ---
-title: "Shiny App with R and Python"
+title: "Python Shiny App with Additional R Functionality"
 format: html
 runtime: shiny
+execute:
+  echo: true
 ---
 
-```{r}
-library(shiny)
-library(reticulate)
-```
+```{python}
+from shiny import App, ui, render
+import rpy2.robjects as ro
 
-```{py}
-def call_r_with_rpy2():
-    import rpy2.robjects as ro
-    # Use R to paste together a message with a number
-    res = ro.r('paste("Hello from R via rpy2 and Python!", 456)')
+# This function calls R code via rpy2.
+def call_r_function():
+    # Execute an R command and return the result.
+    res = ro.r('paste("Hello from R via rpy2 in a Python Shiny app!", 456)')
     return res[0]
-```
 
-```{r}
-ui <- fluidPage(
-  titlePanel("Shiny App with R and Python"),
-  sidebarLayout(
-    sidebarPanel(
-      actionButton("btn", "Call Python Function")
-    ),
-    mainPanel(
-      textOutput("result")
-    )
-  )
+# Define the user interface.
+app_ui = ui.page_fluid(
+    ui.h2("Python Shiny App with Additional R Functionality"),
+    ui.input_action_button("btn", "Call Python Function"),
+    ui.output_text_verbatim("result")
 )
+
+# Define the server logic.
+def server(input, output, session):
+    @output
+    @render.text
+    def result():
+        if input.btn() == 0:
+            return "Click the button to run the function."
+        else:
+            # Call the Python function which calls R.
+            return call_r_function()
+
+# Create the Shiny app.
+app = App(app_ui, server)
 ```
 
-```{r}
-server <- function(input, output, session) {
-  # Initialize a reactive value to store the Python function result
-  result_val <- reactiveVal("Click the button to run Python code.")
-  
-  observeEvent(input$btn, {
-    # Call the Python function defined above
-    res <- py$call_r_with_rpy2()
-    result_val(res)
-  })
-  
-  output$result <- renderText({
-    result_val()
-  })
-}
-```
-
-```{r}
-shinyApp(ui, server)
-```
