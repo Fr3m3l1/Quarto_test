@@ -1,49 +1,133 @@
 ---
-title: "Python Shiny App with Additional R Functionality"
+title: "Microbiome Analysis Dashboard"
 format: html
 runtime: shiny
 execute:
   echo: true
 ---
 
-## R Code: Define an R function
+## R Setup: Phyloseq and Analysis Functions
 
 ```{r}
-# This R function takes a number and returns a message.
-my_r_function <- function(x) {
-  paste("R says the value is:", x)
+library(phyloseq); library(vegan); library(DESeq2); library(plotly)
+
+process_microbiome_data <- function() {
+  # Read and preprocess data
+  data <- read.delim("input_data.tsv", row.names=1)
+  
+  # Create phyloseq object
+  otu_table <- otu_table(data[, 11:ncol(data)], taxa_are_rows=TRUE)
+  tax_table <- tax_table(as.matrix(data[, 1:10]))
+  sample_names <- colnames(data[, 11:ncol(data)])
+  
+  # Create mock metadata
+  sample_data <- data.frame(
+    Sample = sample_names,
+    Group = ifelse(grepl("^A", sample_names), "Group1", "Group2"),
+    row.names = sample_names
+  )
+  
+  phyloseq(otu_table, tax_table, sample_data(sample_data))
+}
+
+alpha_diversity <- function(physeq, measures) {
+  estimate_richness(physeq, measures) |>
+    merge(sample_data(physeq), by="row.names")
+}
+
+beta_diversity <- function(physeq, method="bray") {
+  ordinate(physeq, "PCoA", distance(physeq, method))
+}
+
+diff_abundance <- function(physeq) {
+  phyloseq_to_deseq2(physeq, ~ Group) |>
+    DESeq() |>
+    results()
+}
+
+create_ordination_plot <- function(ordination, physeq) {
+  p <- plot_ordination(physeq, ordination, color="Group") +
+    geom_point(size=3) +
+    theme_bw()
+  ggplotly(p)
 }
 ```
 
 ```{python}
 from shiny import App, ui, render
 import rpy2.robjects as ro
+from rpy2.robjects import pandas2ri
+pandas2ri.activate()
 
-# This function uses rpy2 to call the R function 'my_r_function'
-def call_r_function():
-    # Call the R function defined in the R chunk above with the argument 123.
-    result = ro.r['my_r_function'](123)
-    return result[0]
-
-# Define the user interface with a header, a button, and a text output.
 app_ui = ui.page_fluid(
-    ui.h2("Python Shiny App with Additional R Functionality"),
-    ui.input_action_button("btn", "Call Python Function (which calls R)"),
-    ui.output_text_verbatim("result")
+    ui.h2("Microbiome Analysis Dashboard"),
+    ui.layout_sidebar(
+        ui.panel_sidebar(
+            ui.input_select("tax_level", "Taxonomic Level", 
+                           ["Phylum", "Class", "Order", "Family", "Genus"]),
+            ui.input_select("alpha_metric", "Alpha Diversity Metric",
+                           ["Chao1", "Shannon", "Simpson"]),
+            ui.input_action_button("run_analysis", "Run Analysis")
+        ),
+        ui.panel_main(
+            ui.navset_tab(
+                ui.nav("Alpha Diversity", 
+                      ui.output_plot("alpha_plot")),
+                ui.nav("Beta Diversity",
+                      ui.output_plot("beta_plot"),
+                      ui.output_text_verbatim("permanova")),
+                ui.nav("Differential Abundance",
+                      ui.output_data_frame("diff_table"))
+            )
+        )
+    )
 )
 
-# Define the server logic.
 def server(input, output, session):
+    # Reactive R object for processed data
+    @reactive.Calc
+    def processed_data():
+        return ro.r("process_microbiome_data()")
+    
+    # Alpha diversity analysis
+    @output
+    @render.plot
+    def alpha_plot():
+        if input.run_analysis() < 1:
+            return
+        with localconverter(ro.default_converter + pandas2ri.converter):
+            alpha_df = ro.r(f"alpha_diversity(processed_data(), '{input.alpha_metric()}')")
+        
+        # Plotting code using matplotlib or other Python libraries
+        # (Alternative: Return R ggplot/plotly object through rpy2)
+    
+    # Beta diversity analysis
+    @output
+    @render.plot
+    def beta_plot():
+        if input.run_analysis() < 1:
+            return
+        ord = ro.r(f"beta_diversity(processed_data(), 'bray')")
+        return ro.r("create_ordination_plot")(ord, processed_data())
+    
+    # PERMANOVA results
     @output
     @render.text
-    def result():
-        if input.btn() == 0:
-            return "Click the button to run the function."
-        else:
-            # Call the Python function that uses rpy2 to invoke the R code.
-            return call_r_function()
+    def permanova():
+        return ro.r("""
+            function(physeq) {
+                dist <- distance(physeq, 'bray')
+                adonis2(dist ~ Group, data=as(sample_data(physeq), 'data.frame'))
+            }
+        """)(processed_data())
+    
+    # Differential abundance table
+    @output
+    @render.data_frame
+    def diff_table():
+        res = ro.r("diff_abundance")(processed_data())
+        return render.DataTable(res, filters=True, summary=False)
 
-# Create the Shiny app.
 app = App(app_ui, server)
 ```
 

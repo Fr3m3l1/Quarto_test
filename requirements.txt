@@ -1,0 +1,4 @@
+shiny
+rpy2
+pandas
+plotly
