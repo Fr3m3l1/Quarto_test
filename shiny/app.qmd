@@ -121,6 +121,7 @@ permanova_test <- function(data_list, method = "bray") {
 ```
 
 ```{python}
+#| python.reticulate: false
 from shiny import App, ui, render, reactive
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
