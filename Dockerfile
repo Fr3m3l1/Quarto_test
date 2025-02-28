@@ -37,4 +37,4 @@ WORKDIR /srv/shiny-server/
 EXPOSE 8080
 
 # Start the Quarto Shiny app on port 8080.
-CMD ["quarto", "preview", "app.qmd", "--no-browser", "--port", "8080", "--host", "0.0.0.0"]
+CMD ["quarto", "serve", "app.qmd", "--no-browser", "--port", "8080", "--host", "0.0.0.0"]
