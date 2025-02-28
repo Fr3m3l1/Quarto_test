@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install required Python packages: shiny for the Shiny app and rpy2 for R integration.
-RUN pip install shiny rpy2
+RUN pip install shiny rpy2 numpy
 
 # Download and install Quarto (adjust the version if needed).
 RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quarto-1.6.42-linux-amd64.deb && \
