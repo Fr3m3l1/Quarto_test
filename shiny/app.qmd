@@ -9,6 +9,9 @@ execute:
 ## R Setup: Phyloseq and Analysis Functions
 
 ```{r}
+
+.libPaths(Sys.getenv("R_LIBS_USER"))
+
 library(phyloseq); library(vegan); library(DESeq2); library(plotly)
 
 process_microbiome_data <- function() {

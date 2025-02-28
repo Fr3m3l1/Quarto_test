@@ -1,5 +1,5 @@
 # Use a Python slim base image.
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # Set environment variable for R library path.
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
     r-base \
     r-base-dev \
     wget \
+    libxml2-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install required Python packages: shiny for the Shiny app and rpy2 for R integration.
@@ -23,7 +26,7 @@ RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quar
     rm quarto-1.6.42-linux-amd64.deb
 
 # Install required R packages from CRAN and Bioconductor.
-RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan', 'phyloseq'), repos='http://cran.rstudio.com/')" && \
+RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan'), repos='http://cran.rstudio.com/')" && \
     R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='http://cran.rstudio.com/'); BiocManager::install(c('phyloseq', 'DESeq2'))"
 
 # Copy the Quarto file into the container.
