@@ -1,39 +1,43 @@
-# Verwende ein R-Basisimage von Rocker (R-Version anpassen, wenn noetig)
-FROM rocker/r-ver:4.2.2
+# Use a Python slim base image.
+FROM python:3.11-slim
 
-# Umgebungsvariable fuer den R Library-Pfad setzen
+# Set environment variable for R library path.
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
 
-# Installiere System-Abhaengigkeiten, Python und notwendige Pakete
+# Set reticulate to use the correct Python interpreter.
+ENV RETICULATE_PYTHON=/usr/local/bin/python3
+
+# Install system dependencies: R, R development tools, wget, etc.
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip python3-venv \
+    r-base \
+    r-base-dev \
     wget \
     libxml2-dev \
     libcurl4-openssl-dev \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Installiere die benötigten Python-Pakete ohne Cache
-RUN pip3 install --no-cache-dir shiny rpy2 numpy pandas
+# Install required Python packages: shiny for the Shiny app and rpy2 for R integration.
+RUN pip install shiny rpy2 numpy panadas
 
-# Lade Quarto herunter und installiere es
+# Download and install Quarto (adjust the version if needed).
 RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quarto-1.6.42-linux-amd64.deb && \
     dpkg -i quarto-1.6.42-linux-amd64.deb && \
     rm quarto-1.6.42-linux-amd64.deb
 
-# Installiere die benoetigten R-Pakete aus CRAN und Bioconductor
-RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan'), repos='http://cran.rstudio.com/', Ncpus=4)" && \
-    R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='http://cran.rstudio.com/'); BiocManager::install(c('phyloseq', 'DESeq2'), Ncpus=4)"
+# Install required R packages from CRAN and Bioconductor.
+RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan'), repos='http://cran.rstudio.com/')" && \
+    R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='http://cran.rstudio.com/'); BiocManager::install(c('phyloseq', 'DESeq2'))"
 
-# Kopiere den Quarto-File und weitere Dateien in das Image
+# Copy the Quarto file into the container.
 COPY shiny/app.qmd /srv/shiny-server/
 COPY shiny/ms-project_Excel_output.csv /srv/shiny-server/
 
-# Setze das Arbeitsverzeichnis
+# Set the working directory.
 WORKDIR /srv/shiny-server/
 
-# Exponiere den Port 8080
+# Expose port 8080.
 EXPOSE 8080
 
-# Starte die Quarto Shiny-App
+# Start the Quarto Shiny app on port 8080.
 CMD ["quarto", "serve", "app.qmd", "--no-browser", "--port", "8080", "--host", "0.0.0.0"]
