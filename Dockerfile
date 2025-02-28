@@ -1,10 +1,10 @@
-# Verwende ein R-Basisimage von Rocker (R-Version anpassen, wenn noetig)
+# Verwende ein R-Basisimage von Rocker
 FROM rocker/r-ver:4.2.2
 
-# Umgebungsvariable fuer den R Library-Pfad setzen
+# Setze Umgebungsvariable fuer den R Library-Pfad
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
 
-# Installiere System-Abhaengigkeiten, Python und notwendige Pakete
+# Installiere System-Abhaengigkeiten, Python und noetige Pakete
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv \
     wget \
@@ -13,15 +13,18 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Aktualisiere pip und setuptools, um Build-Fehler zu vermeiden
+RUN pip3 install --upgrade pip setuptools
+
 # Installiere die benoetigten Python-Pakete ohne Cache
-RUN pip3 install --no-cache-dir shiny rpy2 numpy
+RUN pip3 install --no-cache-dir shiny rpy2 numpy pandas
 
 # Lade Quarto herunter und installiere es
 RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quarto-1.6.42-linux-amd64.deb && \
     dpkg -i quarto-1.6.42-linux-amd64.deb && \
     rm quarto-1.6.42-linux-amd64.deb
 
-# Installiere die benoetigten R-Pakete aus CRAN und Bioconductor
+# Installiere die benoetigten R-Pakete aus CRAN und Bioconductor, parallelisiert
 RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan'), repos='http://cran.rstudio.com/', Ncpus=4)" && \
     R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='http://cran.rstudio.com/'); BiocManager::install(c('phyloseq', 'DESeq2'), Ncpus=4)"
 
