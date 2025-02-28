@@ -30,7 +30,8 @@ RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quar
     rm quarto-1.6.42-linux-amd64.deb
 
 # Install R packages (CRAN + Bioconductor)
-RUN R -e "install.packages(c('shiny', 'ggplot2', 'vegan', 'plotly', 'rmarkdown', 'jsonlite', 'reticulate'), repos='https://cloud.r-project.org/', Ncpus=4)" && \
+RUN R -e "install.packages('reticulate', repos='https://cloud.r-project.org/')" && \
+    R -e "install.packages(c('shiny', 'ggplot2', 'vegan', 'plotly', 'rmarkdown', 'jsonlite'), repos='https://cloud.r-project.org/', Ncpus=4)" && \
     R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='https://cloud.r-project.org/'); BiocManager::install('DESeq2', Ncpus=4)"
 
 # Copy application files
