@@ -122,11 +122,12 @@ permanova_test <- function(data_list, method = "bray") {
 
 ```{python}
 #| python.reticulate: false
+#| warning: false
+
 from shiny import App, ui, render, reactive
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.conversion import localconverter
-
 pandas2ri.activate()
 
 app_ui = ui.page_fluid(

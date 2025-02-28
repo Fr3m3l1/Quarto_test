@@ -22,7 +22,15 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install --upgrade pip setuptools
 
 # Install Python packages
-RUN pip3 install --no-cache-dir shiny rpy2 numpy pandas
+# Install Python packages
+RUN pip3 install --no-cache-dir \
+    shiny \
+    rpy2 \
+    numpy \
+    pandas \
+    scipy \
+    scikit-learn \
+    matplotlib
 
 # Install Quarto
 RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quarto-1.6.42-linux-amd64.deb && \
