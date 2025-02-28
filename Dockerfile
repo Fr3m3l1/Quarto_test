@@ -1,16 +1,20 @@
 # Verwende ein R-Basisimage von Rocker
 FROM rocker/r-ver:4.2.2
 
-# Setze Umgebungsvariable fuer den R Library-Pfad
+# Setze die Umgebungsvariable für den R Library-Pfad
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
 
-# Installiere System-Abhaengigkeiten, Python und noetige Pakete
+# Installiere System-Abhängigkeiten, Python, und noetige Bibliotheken
 RUN apt-get update && apt-get install -y \
+    build-essential \
     python3 python3-pip python3-venv \
     wget \
     libxml2-dev \
     libcurl4-openssl-dev \
     libssl-dev \
+    libpcre2-dev \
+    liblzma-dev \
+    libbz2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Aktualisiere pip und setuptools, um Build-Fehler zu vermeiden
@@ -24,7 +28,7 @@ RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quar
     dpkg -i quarto-1.6.42-linux-amd64.deb && \
     rm quarto-1.6.42-linux-amd64.deb
 
-# Installiere die benoetigten R-Pakete aus CRAN und Bioconductor, parallelisiert
+# Installiere die benötigten R-Pakete aus CRAN und Bioconductor (parallelisiert)
 RUN R -e "install.packages(c('shiny', 'reticulate', 'jsonlite', 'rmarkdown', 'plotly', 'vegan'), repos='http://cran.rstudio.com/', Ncpus=4)" && \
     R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='http://cran.rstudio.com/'); BiocManager::install(c('phyloseq', 'DESeq2'), Ncpus=4)"
 
