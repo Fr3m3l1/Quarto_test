@@ -9,50 +9,55 @@ execute:
 ## R Setup: Phyloseq and Analysis Functions
 
 ```{r}
-
+print(.libPaths())
 .libPaths(Sys.getenv("R_LIBS_USER"))
 
-library(phyloseq); library(vegan); library(DESeq2); library(plotly)
+print(.libPaths())
+
+library(phyloseq)
+library(vegan)
+library(DESeq2)
+library(plotly)
 
 process_microbiome_data <- function() {
-  # Read and preprocess data
-  data <- read.delim("./ms-project_Excel_output.csv", row.names=1)
-  
-  # Create phyloseq object
-  otu_table <- otu_table(data[, 11:ncol(data)], taxa_are_rows=TRUE)
-  tax_table <- tax_table(as.matrix(data[, 1:10]))
-  sample_names <- colnames(data[, 11:ncol(data)])
-  
-  # Create mock metadata
-  sample_data <- data.frame(
-    Sample = sample_names,
-    Group = ifelse(grepl("^A", sample_names), "Group1", "Group2"),
-    row.names = sample_names
-  )
-  
-  phyloseq(otu_table, tax_table, sample_data(sample_data))
+    # Read and preprocess data
+    data <- read.delim("./ms-project_Excel_output.csv", row.names = 1)
+
+    # Create phyloseq object
+    otu_table <- otu_table(data[, 11:ncol(data)], taxa_are_rows = TRUE)
+    tax_table <- tax_table(as.matrix(data[, 1:10]))
+    sample_names <- colnames(data[, 11:ncol(data)])
+
+    # Create mock metadata
+    sample_data <- data.frame(
+        Sample = sample_names,
+        Group = ifelse(grepl("^A", sample_names), "Group1", "Group2"),
+        row.names = sample_names
+    )
+
+    phyloseq(otu_table, tax_table, sample_data(sample_data))
 }
 
 alpha_diversity <- function(physeq, measures) {
-  estimate_richness(physeq, measures) |>
-    merge(sample_data(physeq), by="row.names")
+    estimate_richness(physeq, measures) |>
+        merge(sample_data(physeq), by = "row.names")
 }
 
-beta_diversity <- function(physeq, method="bray") {
-  ordinate(physeq, "PCoA", distance(physeq, method))
+beta_diversity <- function(physeq, method = "bray") {
+    ordinate(physeq, "PCoA", distance(physeq, method))
 }
 
 diff_abundance <- function(physeq) {
-  phyloseq_to_deseq2(physeq, ~ Group) |>
-    DESeq() |>
-    results()
+    phyloseq_to_deseq2(physeq, ~Group) |>
+        DESeq() |>
+        results()
 }
 
 create_ordination_plot <- function(ordination, physeq) {
-  p <- plot_ordination(physeq, ordination, color="Group") +
-    geom_point(size=3) +
-    theme_bw()
-  ggplotly(p)
+    p <- plot_ordination(physeq, ordination, color = "Group") +
+        geom_point(size = 3) +
+        theme_bw()
+    ggplotly(p)
 }
 ```
 
