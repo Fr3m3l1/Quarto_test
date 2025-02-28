@@ -3,6 +3,7 @@ FROM rocker/r-ver:4.2.2
 
 # Setze die Umgebungsvariable für den R Library-Pfad
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
+ENV RETICULATE_PYTHON=/usr/bin/python3
 
 # Installiere System-Abhängigkeiten, Python, und noetige Bibliotheken
 RUN apt-get update && apt-get install -y \
