@@ -1,0 +1,216 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"Palmer Penguins\"\n",
+        "author: \"Cobblepot Analytics\"\n",
+        "format: dashboard\n",
+        "server: shiny\n",
+        "---"
+      ],
+      "id": "f5e63064"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "context": "setup"
+      },
+      "source": [
+        "import seaborn as sns\n",
+        "from shiny import reactive\n",
+        "from shiny.express import render, ui\n",
+        "import rpy2.robjects as robjects\n",
+        "from rpy2.robjects import pandas2ri\n",
+        "from rpy2.robjects.packages import importr\n",
+        "import tempfile\n",
+        "from PIL import Image\n",
+        "\n",
+        "# Activate pandas to R conversion\n",
+        "pandas2ri.activate()\n",
+        "\n",
+        "# Load required R packages\n",
+        "utils = importr('utils')\n",
+        "utils.install_packages('ggplot2', quiet=True)  # Ensure ggplot2 is installed\n",
+        "ggplot2 = importr('ggplot2')\n",
+        "\n",
+        "# Load data\n",
+        "penguins = sns.load_dataset(\"penguins\")"
+      ],
+      "id": "03e8cdf1",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "context": "setup"
+      },
+      "source": [
+        "# R function to create ggplot\n",
+        "robjects.r('''\n",
+        "create_r_plot <- function(data) {\n",
+        "    library(ggplot2)\n",
+        "    p <- ggplot(data, aes(x=body_mass_g, fill=species)) +\n",
+        "        geom_histogram(position=\"identity\", alpha=0.5, bins=30) +\n",
+        "        theme_minimal() +\n",
+        "        labs(title=\"Body Mass by Species (R Plot)\", \n",
+        "             x=\"Body Mass (g)\", y=\"Count\")\n",
+        "    return(p)\n",
+        "}\n",
+        "''')"
+      ],
+      "id": "ae827ec2",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# {.sidebar}\n"
+      ],
+      "id": "d9e5419e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "species = list(penguins[\"species\"].value_counts().index)\n",
+        "ui.input_checkbox_group(\n",
+        "    \"species\", \"Species:\",\n",
+        "    species, selected = species\n",
+        ")\n",
+        "\n",
+        "islands = list(penguins[\"island\"].value_counts().index)\n",
+        "ui.input_checkbox_group(\n",
+        "    \"islands\", \"Islands:\",\n",
+        "    islands, selected = islands\n",
+        ")\n",
+        "\n",
+        "@reactive.calc\n",
+        "def filtered_penguins():\n",
+        "    data = penguins[penguins[\"species\"].isin(input.species())]\n",
+        "    data = data[data[\"island\"].isin(input.islands())]\n",
+        "    return data"
+      ],
+      "id": "aa277452",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "ui.input_select(\"dist\", \"Distribution:\", choices=[\"kde\", \"hist\"])\n",
+        "ui.input_checkbox(\"rug\", \"Show rug marks\", value = False)"
+      ],
+      "id": "635654e8",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "[Learn more](https://pypi.org/project/palmerpenguins/) about the\n",
+        "Palmer Penguins dataset.\n",
+        "\n",
+        "# Plots\n"
+      ],
+      "id": "68a5b5fe"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "@render.plot\n",
+        "def depth():\n",
+        "    return sns.displot(\n",
+        "        filtered_penguins(), x = \"bill_depth_mm\",\n",
+        "        hue = \"species\", kind = input.dist(),\n",
+        "        fill = True, rug=input.rug()\n",
+        "    )"
+      ],
+      "id": "dc79c01b",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "@render.plot\n",
+        "def length():\n",
+        "    return sns.displot(\n",
+        "        filtered_penguins(), x = \"bill_length_mm\",\n",
+        "        hue = \"species\", kind = input.dist(),\n",
+        "        fill = True, rug=input.rug()\n",
+        "    )"
+      ],
+      "id": "6c5af2c4",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "@render.plot\n",
+        "def mass_r():\n",
+        "    # Convert filtered data to R dataframe\n",
+        "    r_data = pandas2ri.py2rpy(filtered_penguins())\n",
+        "    robjects.globalenv['filtered_data'] = r_data\n",
+        "    \n",
+        "    # Create temp file for plot\n",
+        "    tmp_path = tempfile.NamedTemporaryFile(suffix=\".png\", delete=False).name\n",
+        "    \n",
+        "    # Generate plot using R function\n",
+        "    robjects.r(f'''\n",
+        "        p <- create_r_plot(filtered_data)\n",
+        "        png(\"{tmp_path}\", width=600, height=400)\n",
+        "        print(p)\n",
+        "        dev.off()\n",
+        "    ''')\n",
+        "    \n",
+        "    # Return rendered image\n",
+        "    return Image.open(tmp_path)"
+      ],
+      "id": "9ca2dadd",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Data\n"
+      ],
+      "id": "7d8a5f02"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "@render.data_frame\n",
+        "def dataview():\n",
+        "    return render.DataGrid(filtered_penguins())"
+      ],
+      "id": "dc472dc7",
+      "execution_count": null,
+      "outputs": []
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "c:\\VisualStudio\\Quarto_test\\.venv\\share\\jupyter\\kernels\\python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}

@@ -1,0 +1,127 @@
+---
+title: "Palmer Penguins"
+author: "Cobblepot Analytics"
+format: dashboard
+server: shiny
+---
+
+```{python}
+#| context: setup
+import seaborn as sns
+from shiny import reactive
+from shiny.express import render, ui
+import rpy2.robjects as robjects
+from rpy2.robjects import pandas2ri
+from rpy2.robjects.packages import importr
+import tempfile
+from PIL import Image
+
+# Activate pandas to R conversion
+pandas2ri.activate()
+
+# Load required R packages
+utils = importr('utils')
+utils.install_packages('ggplot2', quiet=True)  # Ensure ggplot2 is installed
+ggplot2 = importr('ggplot2')
+
+# Load data
+penguins = sns.load_dataset("penguins")
+```
+
+```{python}
+#| context: setup
+# R function to create ggplot
+robjects.r('''
+create_r_plot <- function(data) {
+    library(ggplot2)
+    p <- ggplot(data, aes(x=body_mass_g, fill=species)) +
+        geom_histogram(position="identity", alpha=0.5, bins=30) +
+        theme_minimal() +
+        labs(title="Body Mass by Species (R Plot)", 
+             x="Body Mass (g)", y="Count")
+    return(p)
+}
+''')
+```
+
+# {.sidebar}
+
+```{python}
+species = list(penguins["species"].value_counts().index)
+ui.input_checkbox_group(
+    "species", "Species:",
+    species, selected = species
+)
+
+islands = list(penguins["island"].value_counts().index)
+ui.input_checkbox_group(
+    "islands", "Islands:",
+    islands, selected = islands
+)
+
+@reactive.calc
+def filtered_penguins():
+    data = penguins[penguins["species"].isin(input.species())]
+    data = data[data["island"].isin(input.islands())]
+    return data
+```
+
+```{python}
+ui.input_select("dist", "Distribution:", choices=["kde", "hist"])
+ui.input_checkbox("rug", "Show rug marks", value = False)
+```
+
+[Learn more](https://pypi.org/project/palmerpenguins/) about the
+Palmer Penguins dataset.
+
+# Plots
+
+```{python}
+@render.plot
+def depth():
+    return sns.displot(
+        filtered_penguins(), x = "bill_depth_mm",
+        hue = "species", kind = input.dist(),
+        fill = True, rug=input.rug()
+    )
+```
+
+```{python}
+@render.plot
+def length():
+    return sns.displot(
+        filtered_penguins(), x = "bill_length_mm",
+        hue = "species", kind = input.dist(),
+        fill = True, rug=input.rug()
+    )
+```
+
+```{python}
+@render.plot
+def mass_r():
+    # Convert filtered data to R dataframe
+    r_data = pandas2ri.py2rpy(filtered_penguins())
+    robjects.globalenv['filtered_data'] = r_data
+    
+    # Create temp file for plot
+    tmp_path = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
+    
+    # Generate plot using R function
+    robjects.r(f'''
+        p <- create_r_plot(filtered_data)
+        png("{tmp_path}", width=600, height=400)
+        print(p)
+        dev.off()
+    ''')
+    
+    # Return rendered image
+    return Image.open(tmp_path)
+```
+
+# Data
+
+```{python}
+@render.data_frame
+def dataview():
+    return render.DataGrid(filtered_penguins())
+```

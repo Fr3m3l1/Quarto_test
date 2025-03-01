@@ -1,7 +1,7 @@
 ---
 title: "Microbiome Analysis Dashboard"
-format: html
-runtime: shiny
+format: dashboard
+server: shiny
 execute:
   echo: true
 ---
@@ -118,6 +118,8 @@ permanova_test <- function(data_list, method = "bray") {
     result <- adonis2(dist_matrix ~ Group, data = sample_data)
     capture.output(print(result))
 }
+
+
 ```
 
 ```{python}
@@ -133,22 +135,20 @@ pandas2ri.activate()
 app_ui = ui.page_fluid(
     ui.h2("Microbiome Analysis Dashboard"),
     ui.layout_sidebar(
-        ui.panel_sidebar(
+        ui.sidebar(
             ui.input_select("tax_level", "Taxonomic Level", 
-                          ["Phylum", "Class", "Order", "Family", "Genus"]),
+                            ["Phylum", "Class", "Order", "Family", "Genus"]),
             ui.input_select("alpha_metric", "Alpha Diversity Metric",
-                          ["Chao1", "Shannon", "Simpson"]),
+                            ["Chao1", "Shannon", "Simpson"]),
             ui.input_action_button("run_analysis", "Run Analysis")
         ),
-        ui.panel_main(
-            ui.navset_tab(
-                ui.nav("Alpha Diversity", ui.output_plot("alpha_plot")),
-                ui.nav("Beta Diversity",
-                      ui.output_plot("beta_plot"),
-                      ui.output_text_verbatim("permanova")),
-                ui.nav("Differential Abundance",
-                      ui.output_data_frame("diff_table"))
-            )
+        ui.navset_tab(
+            ui.nav_panel("Alpha Diversity", ui.output_plot("alpha_plot")),
+            ui.nav_panel("Beta Diversity",
+                         ui.output_plot("beta_plot"),
+                         ui.output_text_verbatim("permanova")),
+            ui.nav_panel("Differential Abundance",
+                         ui.output_data_frame("diff_table"))
         )
     )
 )
