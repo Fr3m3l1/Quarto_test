@@ -7,12 +7,16 @@ server: shiny
 
 ```{python}
 #| context: setup
+#| echo: false
 
 import os
 
 os.environ['R_HOME'] = r'C:\Program Files\R\R-4.4.2'
-os.environ['PATH'] = r'C:\Program Files\R\R-4.4.2\bin\x64;' + os.environ['PATH']
-#print("R_HOME:", os.environ.get('R_HOME'))
+os.environ['PATH'] = (
+    r'C:\Program Files\R\R-4.4.2\bin\x64;'
+    r'C:\Program Files\R\R-4.4.2\library\stats\libs\x64;'  # Direct DLL path
+    + os.environ['PATH']
+)
 
 # Set R to use UTF-8 encoding for messages
 os.environ['LC_ALL'] = 'en_US.UTF-8'  # Forces UTF-8 locale
@@ -36,49 +40,26 @@ pandas2ri.activate()
 # Install required R packages if missing
 base = importr('base')
 utils = importr('utils')
-
-# R package names to install
-#packnames = ('ggplot2')
-
-#names_to_install = [x for x in packnames if not rpackages.isinstalled(x)]
-#if len(names_to_install) > 0:
-#    utils.install_packages(StrVector(names_to_install))
-
-
-#try:
-#    ggplot2 = importr('ggplot2')
-#except Exception as e:
-#    print(f"Error loading base package: {e}")
-
+# select a mirror for R packages
+utils.chooseCRANmirror(ind=1) # select the first mirror in the list
 
 # Load data
 penguins = sns.load_dataset("penguins")
 
-#print("TEST")
+# R package names
+packnames = ('ggplot2', 'stats')
+names_to_install = [x for x in packnames if not rpackages.isinstalled(x)]
+if len(names_to_install) > 0:
+    utils.install_packages(StrVector(names_to_install))
 
-```
+# Test R connectivity
+try:
+    stats = importr('stats')
+    print(stats.rnorm(5))  # Should print 5 random numbers
+except Exception as e:
+    print(f"R connection failed: {e}")
 
 
-```{python}
-#| context: setup
-# Define R linear model function
-robjects.r('''
-perform_analysis <- function(data) {
-    # Clean data
-    df <- na.omit(data)
-    
-    # Fit linear model: body mass ~ bill length + species
-    model <- lm(body_mass_g ~ bill_length_mm + species, data = df)
-    
-    # Return formatted summary
-    capture.output({
-        cat("Linear Model Summary:\\n\\n")
-        print(summary(model))
-        cat("\\n\\nCoefficient Details:\\n")
-        print(confint(model))
-    })
-}
-''')
 ```
 
 # {.sidebar}
@@ -131,15 +112,31 @@ def length():
 ```
 
 ```{python}
+@reactive.calc
+def filtered_penguins():
+    # Apply filters and remove missing values
+    data = penguins[penguins["species"].isin(input.species())]
+    data = data[data["island"].isin(input.islands())]
+    return data.dropna()  # Handle NA in Python
+
 @render.text
 def mass_r():
-    # Convert filtered data to R dataframe
+    # Convert cleaned data to R dataframe
     r_df = pandas2ri.py2rpy(filtered_penguins())
     
-    # Perform analysis
-    analysis_output = robjects.r['perform_analysis'](r_df)
+    # Modified R analysis code (no na.omit needed)
+    analysis_output = robjects.r('''
+        function(data) {
+            model <- stats::lm(body_mass_g ~ bill_length_mm + species, data = data)
+            capture.output({
+                base::cat("Linear Model Summary:\\n\\n")
+                base::print(summary(model))
+                base::cat("\\n\\nCoefficient Details:\\n")
+                base::print(stats::confint(model))
+            })
+        }
+    ''')(r_df)
     
-    # Return as preformatted text
     return f"```\n{analysis_output[0]}\n```"
 ```
 

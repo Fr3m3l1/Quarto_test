@@ -1,4 +1,5 @@
 Start the shiny server with the following command:
+
 ```bash
 quarto serve shiny/app.qmd
 ```
