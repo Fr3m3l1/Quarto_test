@@ -6,10 +6,74 @@ from __future__ import annotations
 from pathlib import Path
 from shiny import App, Inputs, Outputs, Session, ui
 
+import os
+
+os.environ['R_HOME'] = r'C:\Program Files\R\R-4.4.2'
+os.environ['PATH'] = r'C:\Program Files\R\R-4.4.2\bin\x64;' + os.environ['PATH']
+#print("R_HOME:", os.environ.get('R_HOME'))
+
+# Set R to use UTF-8 encoding for messages
+os.environ['LC_ALL'] = 'en_US.UTF-8'  # Forces UTF-8 locale
+os.environ['LANG'] = 'en_US.UTF-8'    # For compatibility
+
 import seaborn as sns
 from shiny import reactive
 from shiny.express import render, ui
+import rpy2.robjects as robjects
+from rpy2.robjects import pandas2ri
+import rpy2.robjects.packages as rpackages
+from rpy2.robjects.packages import importr
+from rpy2.robjects.vectors import StrVector
+import tempfile
+from pathlib import Path
+
+
+# Initialize R conversion
+pandas2ri.activate()
+
+# Install required R packages if missing
+base = importr('base')
+utils = importr('utils')
+
+# R package names to install
+#packnames = ('ggplot2')
+
+#names_to_install = [x for x in packnames if not rpackages.isinstalled(x)]
+#if len(names_to_install) > 0:
+#    utils.install_packages(StrVector(names_to_install))
+
+
+#try:
+#    ggplot2 = importr('ggplot2')
+#except Exception as e:
+#    print(f"Error loading base package: {e}")
+
+
+# Load data
 penguins = sns.load_dataset("penguins")
+
+#print("TEST")
+
+# ========================================================================
+
+# Define R linear model function
+robjects.r('''
+perform_analysis <- function(data) {
+    # Clean data
+    df <- na.omit(data)
+    
+    # Fit linear model: body mass ~ bill length + species
+    model <- lm(body_mass_g ~ bill_length_mm + species, data = df)
+    
+    # Return formatted summary
+    capture.output({
+        cat("Linear Model Summary:\\n\\n")
+        print(summary(model))
+        cat("\\n\\nCoefficient Details:\\n")
+        print(confint(model))
+    })
+}
+''')
 
 # ========================================================================
 
@@ -20,51 +84,66 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     species = list(penguins["species"].value_counts().index)
     ui.input_checkbox_group(
         "species", "Species:",
-        species, selected = species
+        species, selected=species
     )
 
     islands = list(penguins["island"].value_counts().index)
     ui.input_checkbox_group(
         "islands", "Islands:",
-        islands, selected = islands
+        islands, selected=islands
     )
 
     @reactive.calc
     def filtered_penguins():
         data = penguins[penguins["species"].isin(input.species())]
-        data = data[data["island"].isin(input.islands())]
-        return data
+        return data[data["island"].isin(input.islands())]
 
     # ========================================================================
 
     ui.input_select("dist", "Distribution:", choices=["kde", "hist"])
-    ui.input_checkbox("rug", "Show rug marks", value = False)
+    ui.input_checkbox("rug", "Show rug marks", value=False)
 
     # ========================================================================
 
     @render.plot
     def depth():
         return sns.displot(
-            filtered_penguins(), x = "bill_depth_mm",
-            hue = "species", kind = input.dist(),
-            fill = True, rug=input.rug()
+            filtered_penguins(), x="bill_depth_mm",
+            hue="species", kind=input.dist(),
+            fill=True, rug=input.rug()
         )
-
-    # ========================================================================
 
     @render.plot
     def length():
         return sns.displot(
-            filtered_penguins(), x = "bill_length_mm",
-            hue = "species", kind = input.dist(),
-            fill = True, rug=input.rug()
+            filtered_penguins(), x="bill_length_mm",
+            hue="species", kind=input.dist(),
+            fill=True, rug=input.rug()
         )
+
+    # ========================================================================
+
+    @render.text
+    def mass_r():
+        # Convert filtered data to R dataframe
+        r_df = pandas2ri.py2rpy(filtered_penguins())
+    
+        # Perform analysis
+        analysis_output = robjects.r['perform_analysis'](r_df)
+    
+        # Return as preformatted text
+        return f"```\n{analysis_output[0]}\n```"
 
     # ========================================================================
 
     @render.data_frame
     def dataview():
         return render.DataGrid(filtered_penguins())
+
+    # ========================================================================
+
+    pi = robjects.r['pi']
+    print(pi[0])
 
     # ========================================================================
 

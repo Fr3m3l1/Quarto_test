@@ -7,39 +7,76 @@ server: shiny
 
 ```{python}
 #| context: setup
+
+import os
+
+os.environ['R_HOME'] = r'C:\Program Files\R\R-4.4.2'
+os.environ['PATH'] = r'C:\Program Files\R\R-4.4.2\bin\x64;' + os.environ['PATH']
+#print("R_HOME:", os.environ.get('R_HOME'))
+
+# Set R to use UTF-8 encoding for messages
+os.environ['LC_ALL'] = 'en_US.UTF-8'  # Forces UTF-8 locale
+os.environ['LANG'] = 'en_US.UTF-8'    # For compatibility
+
 import seaborn as sns
 from shiny import reactive
 from shiny.express import render, ui
 import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri
+import rpy2.robjects.packages as rpackages
 from rpy2.robjects.packages import importr
+from rpy2.robjects.vectors import StrVector
 import tempfile
-from PIL import Image
+from pathlib import Path
 
-# Activate pandas to R conversion
+
+# Initialize R conversion
 pandas2ri.activate()
 
-# Load required R packages
+# Install required R packages if missing
+base = importr('base')
 utils = importr('utils')
-utils.install_packages('ggplot2', quiet=True)  # Ensure ggplot2 is installed
-ggplot2 = importr('ggplot2')
+
+# R package names to install
+#packnames = ('ggplot2')
+
+#names_to_install = [x for x in packnames if not rpackages.isinstalled(x)]
+#if len(names_to_install) > 0:
+#    utils.install_packages(StrVector(names_to_install))
+
+
+#try:
+#    ggplot2 = importr('ggplot2')
+#except Exception as e:
+#    print(f"Error loading base package: {e}")
+
 
 # Load data
 penguins = sns.load_dataset("penguins")
+
+#print("TEST")
+
 ```
+
 
 ```{python}
 #| context: setup
-# R function to create ggplot
+# Define R linear model function
 robjects.r('''
-create_r_plot <- function(data) {
-    library(ggplot2)
-    p <- ggplot(data, aes(x=body_mass_g, fill=species)) +
-        geom_histogram(position="identity", alpha=0.5, bins=30) +
-        theme_minimal() +
-        labs(title="Body Mass by Species (R Plot)", 
-             x="Body Mass (g)", y="Count")
-    return(p)
+perform_analysis <- function(data) {
+    # Clean data
+    df <- na.omit(data)
+    
+    # Fit linear model: body mass ~ bill length + species
+    model <- lm(body_mass_g ~ bill_length_mm + species, data = df)
+    
+    # Return formatted summary
+    capture.output({
+        cat("Linear Model Summary:\\n\\n")
+        print(summary(model))
+        cat("\\n\\nCoefficient Details:\\n")
+        print(confint(model))
+    })
 }
 ''')
 ```
@@ -50,25 +87,24 @@ create_r_plot <- function(data) {
 species = list(penguins["species"].value_counts().index)
 ui.input_checkbox_group(
     "species", "Species:",
-    species, selected = species
+    species, selected=species
 )
 
 islands = list(penguins["island"].value_counts().index)
 ui.input_checkbox_group(
     "islands", "Islands:",
-    islands, selected = islands
+    islands, selected=islands
 )
 
 @reactive.calc
 def filtered_penguins():
     data = penguins[penguins["species"].isin(input.species())]
-    data = data[data["island"].isin(input.islands())]
-    return data
+    return data[data["island"].isin(input.islands())]
 ```
 
 ```{python}
 ui.input_select("dist", "Distribution:", choices=["kde", "hist"])
-ui.input_checkbox("rug", "Show rug marks", value = False)
+ui.input_checkbox("rug", "Show rug marks", value=False)
 ```
 
 [Learn more](https://pypi.org/project/palmerpenguins/) about the
@@ -80,42 +116,31 @@ Palmer Penguins dataset.
 @render.plot
 def depth():
     return sns.displot(
-        filtered_penguins(), x = "bill_depth_mm",
-        hue = "species", kind = input.dist(),
-        fill = True, rug=input.rug()
+        filtered_penguins(), x="bill_depth_mm",
+        hue="species", kind=input.dist(),
+        fill=True, rug=input.rug()
     )
-```
 
-```{python}
 @render.plot
 def length():
     return sns.displot(
-        filtered_penguins(), x = "bill_length_mm",
-        hue = "species", kind = input.dist(),
-        fill = True, rug=input.rug()
+        filtered_penguins(), x="bill_length_mm",
+        hue="species", kind=input.dist(),
+        fill=True, rug=input.rug()
     )
 ```
 
 ```{python}
-@render.plot
+@render.text
 def mass_r():
     # Convert filtered data to R dataframe
-    r_data = pandas2ri.py2rpy(filtered_penguins())
-    robjects.globalenv['filtered_data'] = r_data
+    r_df = pandas2ri.py2rpy(filtered_penguins())
     
-    # Create temp file for plot
-    tmp_path = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
+    # Perform analysis
+    analysis_output = robjects.r['perform_analysis'](r_df)
     
-    # Generate plot using R function
-    robjects.r(f'''
-        p <- create_r_plot(filtered_data)
-        png("{tmp_path}", width=600, height=400)
-        print(p)
-        dev.off()
-    ''')
-    
-    # Return rendered image
-    return Image.open(tmp_path)
+    # Return as preformatted text
+    return f"```\n{analysis_output[0]}\n```"
 ```
 
 # Data
@@ -124,4 +149,11 @@ def mass_r():
 @render.data_frame
 def dataview():
     return render.DataGrid(filtered_penguins())
+```
+
+# PI in R
+
+```{python}
+pi = robjects.r['pi']
+print(pi[0])
 ```
