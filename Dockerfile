@@ -1,5 +1,5 @@
 # Use the official Quarto image which includes R, Pandoc, and Quarto
-FROM quartohq/quarto:latest
+FROM quarto-dev/quarto:latest
 
 # Install required R packages
 RUN R -e "install.packages(c('flexdashboard', 'shiny', 'ggplot2', 'dplyr', 'palmerpenguins', 'gridExtra', 'knitr', 'rmarkdown'), repos='https://cloud.r-project.org')"
