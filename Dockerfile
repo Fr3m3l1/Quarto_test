@@ -1,56 +1,17 @@
-# Use R base image from Rocker
-FROM rocker/r-ver:4.2.2
+# Use the official Quarto image which includes R, Pandoc, and Quarto
+FROM quartohq/quarto:latest
 
-# Set environment variables
-ENV R_LIBS_USER=/usr/local/lib/R/site-library
-ENV RETICULATE_PYTHON=/usr/bin/python3
+# Install required R packages
+RUN R -e "install.packages(c('flexdashboard', 'shiny', 'ggplot2', 'dplyr', 'palmerpenguins', 'gridExtra', 'knitr', 'rmarkdown'), repos='https://cloud.r-project.org')"
 
-# Install system dependencies and Python
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3 python3-pip python3-venv \
-    wget \
-    libxml2-dev \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libpcre2-dev \
-    liblzma-dev \
-    libbz2-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Set the working directory
+WORKDIR /project
 
-# Update pip and setuptools
-RUN pip3 install --upgrade pip setuptools
+# Copy your Quarto document into the container
+COPY r_only/r_only.qmd .
 
-# Install Python packages
-# Install Python packages
-RUN pip3 install --no-cache-dir \
-    shiny \
-    rpy2 \
-    numpy \
-    pandas \
-    scipy \
-    scikit-learn \
-    matplotlib
-
-# Install Quarto
-RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quarto-1.6.42-linux-amd64.deb && \
-    dpkg -i quarto-1.6.42-linux-amd64.deb && \
-    rm quarto-1.6.42-linux-amd64.deb
-
-# Install R packages (CRAN + Bioconductor)
-RUN R -e "install.packages('reticulate', repos='https://cloud.r-project.org/')" && \
-    R -e "install.packages(c('shiny', 'ggplot2', 'vegan', 'plotly', 'rmarkdown', 'jsonlite'), repos='https://cloud.r-project.org/', Ncpus=4)" && \
-    R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='https://cloud.r-project.org/'); BiocManager::install('DESeq2', Ncpus=4)"
-
-# Copy application files
-COPY shiny/app.qmd /srv/shiny-server/
-COPY shiny/ms-project_Excel_output.csv /srv/shiny-server/
-
-# Set working directory
-WORKDIR /srv/shiny-server/
-
-# Expose port
+# Expose the port used by quarto serve (default: 4242)
 EXPOSE 8080
 
-# Start application
-CMD ["quarto", "serve", "app.qmd", "--no-browser", "--port", "8080", "--host", "0.0.0.0"]
+# Run the Quarto document with the Shiny runtime
+CMD ["quarto", "serve", "r_only.qmd", "--no-browser", "--port", "8080", "--allow-remote"]
