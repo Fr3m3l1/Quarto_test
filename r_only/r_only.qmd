@@ -1,0 +1,108 @@
+---
+title: "Palmer Penguins"
+author: "Cobblepot Analytics"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(palmerpenguins)
+
+# Load penguins dataset
+data(penguins)
+```
+
+# {.sidebar}
+
+```{r}
+# Species filter
+checkboxGroupInput("species", "Species:",
+    choices = unique(penguins$species),
+    selected = unique(penguins$species)
+)
+
+# Island filter
+checkboxGroupInput("islands", "Islands:",
+    choices = unique(penguins$island),
+    selected = unique(penguins$island)
+)
+
+# Distribution type
+selectInput("dist", "Distribution:", choices = c("kde", "hist"))
+
+# Rug marks toggle
+checkboxInput("rug", "Show rug marks", value = FALSE)
+
+# Dataset link
+tags$a("Learn more", href = "https://github.com/allisonhorst/palmerpenguins", target = "_blank")
+
+# Add the reactive data filter here
+```{r}
+filtered_data <- reactive({
+    req(input$species, input$islands)
+    
+    penguins %>%
+        filter(species %in% input$species,
+               island %in% input$islands) %>%
+        na.omit()
+})
+```
+
+# Plots
+
+## Bill Depth
+
+```{r}
+renderPlot({
+    req(filtered_data())
+    p <- ggplot(filtered_data(), aes(x = bill_depth_mm, fill = species)) +
+        theme_minimal()
+
+    if (input$dist == "hist") {
+        p <- p + geom_histogram(position = "identity", alpha = 0.5)
+    } else {
+        p <- p + geom_density(alpha = 0.5)
+    }
+
+    if (input$rug) {
+        p <- p + geom_rug()
+    }
+
+    p + labs(x = "Bill Depth (mm)", y = "Count")
+})
+```
+
+## Bill Length
+
+```{r}
+renderPlot({
+    req(filtered_data())
+    p <- ggplot(filtered_data(), aes(x = bill_length_mm, fill = species)) +
+        theme_minimal()
+
+    if (input$dist == "hist") {
+        p <- p + geom_histogram(position = "identity", alpha = 0.5)
+    } else {
+        p <- p + geom_density(alpha = 0.5)
+    }
+
+    if (input$rug) {
+        p <- p + geom_rug()
+    }
+
+    p + labs(x = "Bill Length (mm)", y = "Count")
+})
+```
+
+# Data
+
+```{r}
+renderDataTable({
+    req(filtered_data())
+    filtered_data()
+})
+```
