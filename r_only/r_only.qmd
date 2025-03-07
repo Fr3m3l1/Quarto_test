@@ -38,7 +38,7 @@ selectInput("dist", "Distribution:", choices = c("kde", "hist"))
 checkboxInput("rug", "Show rug marks", value = FALSE)
 
 # PDF Export
-downloadLink("download_report", "Export as PDF")
+downloadLink("download_report", "Export Report as PDF")
 
 
 filtered_data <- reactive({
@@ -75,6 +75,15 @@ renderPlot({
 
     p + labs(x = "Bill Depth (mm)", y = "Count")
 })
+```
+
+```{r}
+div(
+    style = "text-align: center; margin-top: 20px;",
+    downloadButton("download_report", "Download Report as PDF",
+        class = "btn-primary", style = "width: 80%;"
+    )
+)
 ```
 
 ## Bill Length
@@ -140,7 +149,7 @@ output$download_report <- downloadHandler(
             "",
             "## Bill Analysis",
             "",
-            "```{r}",
+            "```{r, echo=FALSE}",
             "# Depth plot",
             "p_depth <- ggplot(data, aes(x = bill_depth_mm, fill = species)) +",
             "  theme_minimal() +",
@@ -162,7 +171,7 @@ output$download_report <- downloadHandler(
             "",
             "## Data Summary",
             "",
-            "```{r}",
+            "```{r, echo=FALSE}",
             "knitr::kable(head(data))",
             "```",
             sep = "\n"
