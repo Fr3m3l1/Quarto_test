@@ -11,7 +11,9 @@ COPY r_only/r_only.qmd /home/app/r_only.qmd
 RUN R -e "install.packages(c('flexdashboard', 'shiny', 'ggplot2', 'dplyr', 'palmerpenguins', 'gridExtra', 'knitr'))"
 RUN R -e "install.packages('rmarkdown', repos='https://cloud.r-project.org')"
 RUN R -e "install.packages('xfun', repos='https://cloud.r-project.org')"
-RUN R -e "install.packages(c('htmltools', 'fastmap', 'promises', 'rlang', 'scales', 'vctrs', 'lifecycle'), repos='https://cloud.r-project.org')"
+RUN R -e "install.packages('htmltools'), repos='https://cloud.r-project.org')"
+
+RUN R -e "update.packages(ask = FALSE, repos = 'https://cloud.r-project.org')"
 
 # Aendere den Besitzer des Arbeitsverzeichnisses
 RUN chown app:app -R /home/app
