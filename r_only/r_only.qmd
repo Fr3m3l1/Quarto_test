@@ -1,46 +1,48 @@
-renderPlot({
-    req(input$tax_level, input$metadata_group, input$alpha_indices, uploaded_otu_table(), uploaded_metadata())
+---
+title: "Microbiome Data Explorer MVP"
+author: "PA 1"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
 
-    otu_data <- uploaded_otu_table()
-    metadata_data <- uploaded_metadata()
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(DT)
+library(vegan)
+library(reshape2)
+library(gridExtra)
+library(rmarkdown)
 
-    tax_level_data <- otu_data %>%
-        select(all_of(input$tax_level))
-    count_data <- otu_data %>%
-        select(starts_with("A"), starts_with("B"))
+# **Increase maximum upload size to 10MB (adjust as needed)**
+options(shiny.maxRequestSize = 10 * 1024^2)
 
-    alpha_div_results <- data.frame(SampleID = colnames(count_data))
+# **Silence bspm D-Bus warning in Docker**
+options(bspm.sudo = TRUE)
 
-    if ("Chao1" %in% input$alpha_indices) {
-        alpha_div_results$Chao1 <- estimateR(t(count_data), model = "Chao1")[1, ]
-    }
-    if ("Simpson" %in% input$alpha_indices) {
-        alpha_div_results$Simpson <- diversity(t(count_data), index = "simpson")
-    }
-    if ("Shannon" %in% input$alpha_indices) {
-        alpha_div_results$Shannon <- diversity(t(count_data), index = "shannon")
-    }
+# Define static choices (will be updated dynamically)
+taxonomic_levels <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+alpha_diversity_indices <- c("Chao1", "Simpson", "Shannon")
+```
 
-    merged_data <- merge(alpha_div_results, metadata_data, by.x = "SampleID", by.y = "SampleID")
+# {.sidebar}
 
-    plot_data_long <- merged_data %>%
-        select(SampleID, input$metadata_group, input$alpha_indices) %>%
-        melt(
-            id.vars = c("SampleID", input$metadata_group),
-            variable.name = "Diversity_Index",
-            value.name = "Diversity_Value"
-        )
+```{r}
+fileInput("otu_file", "Upload OTU Table (CSV):", accept = ".csv")
+fileInput("metadata_file", "Upload Metadata (CSV):", accept = ".csv")
 
-    ggplot(plot_data_long, aes(x = factor(!!sym(input$metadata_group)), y = Diversity_Value, fill = factor(!!sym(input$metadata_group)))) + # Modified line
-        geom_boxplot() +
-        facet_wrap(~Diversity_Index, scales = "free_y") +
-        theme_minimal() +
-        labs(
-            title = paste("Alpha Diversity at", input$tax_level, "Level"),
-            x = input$metadata_group,
-            y = "Diversity Value"
-        )
-})
+hr() # Horizontal rule for visual separation
+strong("Data Filters")
+br()
+br()
+
+# Dynamic Taxonomic Level Input (UI defined in server)
+uiOutput("tax_level_ui")
+
+# Dynamic Metadata Grouping Input (UI defined in server)
+uiOutput("metadata_group_ui")
 
 # Alpha Diversity Indices Input (Static)
 checkboxGroupInput("alpha_indices", "Alpha Diversity Indices:",
@@ -257,7 +259,7 @@ renderPlot({
             value.name = "Diversity_Value"
         )
 
-    ggplot(plot_data_long, aes(x = factor(!!sym(input$metadata_group)), y = Diversity_Value, fill = factor(!!sym(input$metadata_group)))) +
+    ggplot(plot_data_long, aes(x = factor(!!sym(input$metadata_group)), y = Diversity_Value, fill = factor(!!sym(input$metadata_group)))) + # Modified line
         geom_boxplot() +
         facet_wrap(~Diversity_Index, scales = "free_y") +
         theme_minimal() +
