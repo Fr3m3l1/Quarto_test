@@ -5,7 +5,9 @@ RUN apt-get update -y --allow-releaseinfo-change --fix-missing && apt-get instal
     texlive-latex-base \
     texlive-fonts-base \
     texlive-extra-utils \
-    texlive-latex-recommended
+    texlive-latex-recommended \
+    texlive-latex-extra \
+    lmodern
 
 # Erstelle einen nicht-root Benutzer
 RUN addgroup --system app && adduser --system --ingroup app app
