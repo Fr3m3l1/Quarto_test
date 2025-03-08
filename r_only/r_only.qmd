@@ -184,7 +184,7 @@ observeEvent(uploaded_otu_table(), {
                 "# Generate and print boxplots in PDF report",
                 "plots <- lapply(alpha_indices, function(index) {",
                 " ggplot(plot_data_long_pdf %>% filter(Diversity_Index == index), ",
-                "      aes_string(x = metadata_group, y = 'Diversity_Value', fill = metadata_group)) +",
+                "      aes(x = .data[[metadata_group]], y = Diversity_Value, fill = .data[[metadata_group]])) +",
                 "   geom_boxplot() +",
                 "   theme_minimal() +",
                 "   labs(title = paste('Alpha Diversity (', index, ') at', tax_level, 'Level'),",
