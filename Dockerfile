@@ -1,5 +1,12 @@
 FROM analythium/r2u-quarto:20.04
 
+# Install LaTeX at the OS level
+RUN apt-get update && apt-get install -y \
+    texlive-latex-base \
+    texlive-fonts-base \
+    texlive-extra-utils \
+    texlive-latex-recommended
+
 # Erstelle einen nicht-root Benutzer
 RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /home/app
@@ -8,7 +15,7 @@ WORKDIR /home/app
 COPY r_only/r_only.qmd /home/app/r_only.qmd
 
 # Installiere die benoetigten R-Pakete
-RUN R -e "install.packages(c('flexdashboard', 'shiny', 'ggplot2', 'dplyr', 'vegan', 'DT', 'reshape2', 'gridExtra', 'pdflatex'))"
+RUN R -e "install.packages(c('flexdashboard', 'shiny', 'ggplot2', 'dplyr', 'vegan', 'DT', 'reshape2', 'gridExtra'))"
 RUN R -e "install.packages('rmarkdown', repos='https://cloud.r-project.org')"
 RUN R -e "install.packages('xfun', repos='https://cloud.r-project.org')"
 RUN R -e "install.packages('htmltools', repos='https://cloud.r-project.org')"
