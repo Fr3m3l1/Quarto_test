@@ -1,6 +1,6 @@
 ---
-title: "Palmer Penguins"
-author: "Cobblepot Analytics"
+title: "Microbiome Data Explorer MVP"
+author: "PA 1"
 output: flexdashboard::flex_dashboard
 runtime: shiny
 ---
@@ -25,6 +25,31 @@ alpha_diversity_indices <- c("Chao1", "Simpson", "Shannon")
 ```
 
 # {.sidebar}
+
+```{r}
+fileInput("otu_file", "Upload OTU Table (CSV):", accept = ".csv")
+fileInput("metadata_file", "Upload Metadata (CSV):", accept = ".csv")
+
+hr() # Horizontal rule for visual separation
+strong("Data Filters")
+br()
+br()
+
+# Dynamic Taxonomic Level Input (UI defined in server)
+uiOutput("tax_level_ui")
+
+# Dynamic Metadata Grouping Input (UI defined in server)
+uiOutput("metadata_group_ui")
+
+# Alpha Diversity Indices Input (Static)
+checkboxGroupInput("alpha_indices", "Alpha Diversity Indices:",
+    choices = alpha_diversity_indices,
+    selected = "Shannon"
+)
+
+hr() # Separator before download
+downloadLink("download_report", "Export Report as PDF")
+```
 
 ```{r}
 # Reactive data for OTU table
@@ -57,10 +82,6 @@ uploaded_metadata <- reactive({
 
 # Reactive taxonomic levels (dynamic choices)
 reactive_taxonomic_levels <- reactive({
-    if (is.null(input$otu_file)) {
-        return(NULL) # or return(character(0)) - empty character vector
-    }
-    req(input$otu_file) # Now req is inside the if block
     otu_data <- uploaded_otu_table()
     if (!is.null(otu_data)) {
         tax_cols <- intersect(taxonomic_levels, names(otu_data))
@@ -72,10 +93,6 @@ reactive_taxonomic_levels <- reactive({
 
 # Reactive metadata columns (dynamic choices)
 reactive_metadata_cols <- reactive({
-    if (is.null(input$metadata_file)) {
-        return(NULL) # or return(character(0)) - empty character vector
-    }
-    req(input$metadata_file) # Now req is inside the if block
     metadata_data <- uploaded_metadata()
     if (!is.null(metadata_data)) {
         return(names(metadata_data)[-1])
@@ -84,7 +101,27 @@ reactive_metadata_cols <- reactive({
     }
 })
 
+# Dynamic UI outputs for selectors (in sidebar)
+observeEvent(uploaded_otu_table(), {
+    output$tax_level_ui <- renderUI(
+        selectInput("tax_level", "Taxonomic Level:",
+            choices = reactive_taxonomic_levels(),
+            selected = if (!is.null(reactive_taxonomic_levels())) reactive_taxonomic_levels()[1] else NULL
+        )
+    )
+})
 
+observeEvent(uploaded_otu_table(), {
+    output$metadata_group_ui <- renderUI(
+        selectInput("metadata_group", "Group by Metadata:",
+            choices = reactive_metadata_cols(),
+            selected = if (!is.null(reactive_metadata_cols())) reactive_metadata_cols()[1] else NULL
+        )
+    )
+})
+```
+
+```{r}
 # **DELAYED downloadHandler INITIALIZATION using observeEvent**
 observeEvent(uploaded_otu_table(), {
     output$download_report <- downloadHandler(
@@ -179,31 +216,6 @@ observeEvent(uploaded_otu_table(), {
     )
 })
 
-```
-
-```{r}
-fileInput("otu_file", "Upload OTU Table (CSV):", accept = ".csv")
-fileInput("metadata_file", "Upload Metadata (CSV):", accept = ".csv")
-
-hr() # Horizontal rule for visual separation
-strong("Data Filters")
-br()
-br()
-
-# Dynamic Taxonomic Level Input (UI defined in server)
-uiOutput("tax_level_ui")
-
-# Dynamic Metadata Grouping Input (UI defined in server)
-uiOutput("metadata_group_ui")
-
-# Alpha Diversity Indices Input (Static)
-checkboxGroupInput("alpha_indices", "Alpha Diversity Indices:",
-    choices = alpha_diversity_indices,
-    selected = "Shannon"
-)
-
-hr() # Separator before download
-downloadLink("download_report", "Export Report as PDF")
 ```
 
 # Dashboard
