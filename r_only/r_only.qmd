@@ -121,22 +121,21 @@ output$metadata_group_ui <- renderUI({
 observeEvent(uploaded_otu_table(), {
     output$download_report <- downloadHandler(
         filename = function() {
-            paste0("microbiome-report-", Sys.Date(), ".pdf") # Changed filename
+            paste0("microbiome-report-", Sys.Date(), ".pdf")
         },
         content = function(file) {
             temp_report <- tempfile(fileext = ".Rmd")
 
-            # Rmd-Content Template
             report_content <- paste(
                 "---",
                 "title: 'Microbiome Analysis Report'",
                 "output: pdf_document",
                 "params:",
-                "  data: NA", # Declared parameter 'data'
-                "  metadata: NA", # Declared parameter 'metadata'
-                "  tax_level: 'Genus'", # Declared parameter 'tax_level'
-                "  metadata_group: 'Timepoint'", # Declared parameter 'metadata_group'
-                "  alpha_indices: c('Shannon')", # Declared parameter 'alpha_indices'
+                "  data: NA",
+                "  metadata: NA",
+                "  tax_level: 'Genus'",
+                "  metadata_group: 'Timepoint'",
+                "  alpha_indices: c('Shannon')",
                 "---",
                 "",
                 "```{r setup_report, include=FALSE}",
@@ -145,12 +144,12 @@ observeEvent(uploaded_otu_table(), {
                 "library(vegan)",
                 "library(reshape2)",
                 "library(gridExtra)",
-                "otu_data <- params$data", # Get OTU data from params
-                "metadata_data <- params$metadata", # Get metadata from params
+                "otu_data <- params$data",
+                "metadata_data <- params$metadata",
                 "tax_level <- params$tax_level",
                 "metadata_group <- params$metadata_group",
                 "alpha_indices <- params$alpha_indices",
-                "count_cols <- names(otu_data)[grepl('^[AB]\\\\d{4}$', names(otu_data))]", # Assuming count columns start with A or B and 4 digits
+                "count_cols <- names(otu_data)[grepl('^[AB]\\\\d{4}$', names(otu_data))]",
                 "```",
                 "",
                 "## Alpha Diversity Analysis",
@@ -169,12 +168,13 @@ observeEvent(uploaded_otu_table(), {
                 "merged_data_pdf <- merge(alpha_div_results_pdf, metadata_data, by.x = 'SampleID', by.y = 'SampleID')",
                 "# Prepare plot data for PDF report",
                 "plot_data_long_pdf <- merged_data_pdf %>%",
-                "  select(SampleID, metadata_group, alpha_indices) %>%",
+                # Corrected line below - using all_of for metadata_group and alpha_indices
+                "  select(SampleID, all_of(metadata_group), all_of(alpha_indices)) %>%",
                 "  melt(id.vars = c('SampleID', metadata_group),",
                 "       variable.name = 'Diversity_Index',",
                 "       value.name = 'Diversity_Value')",
                 "# Generate and print boxplots in PDF report",
-                "plots <- lapply(alpha_indices, function(index) {", # Loop through selected indices
+                "plots <- lapply(alpha_indices, function(index) {",
                 "  ggplot(plot_data_long_pdf %>% filter(Diversity_Index == index), ",
                 "         aes_string(x = metadata_group, y = 'Diversity_Value', fill = metadata_group)) +",
                 "    geom_boxplot() +",
@@ -182,13 +182,13 @@ observeEvent(uploaded_otu_table(), {
                 "    labs(title = paste('Alpha Diversity (', index, ') at', tax_level, 'Level'),",
                 "         x = metadata_group, y = 'Diversity Value')",
                 "})",
-                "do.call(grid.arrange, c(plots, ncol = 1))", # Arrange plots in a column
+                "do.call(grid.arrange, c(plots, ncol = 1))",
                 "```",
                 "",
                 "## Data Summary (First Few Rows of OTU Table)",
                 "",
                 "```{r data_summary_table_pdf, echo=FALSE}",
-                "knitr::kable(head(otu_data))", # Display first few rows of uploaded OTU table in PDF
+                "knitr::kable(head(otu_data))",
                 "```",
                 sep = "\n"
             )
@@ -199,11 +199,11 @@ observeEvent(uploaded_otu_table(), {
                 input = temp_report,
                 output_file = file,
                 params = list(
-                    data = isolate(uploaded_otu_table()), # Pass uploaded OTU data
-                    metadata = isolate(uploaded_metadata()), # Pass uploaded metadata
-                    tax_level = isolate(input$tax_level), # Pass selected tax level
-                    metadata_group = isolate(input$metadata_group), # Pass selected metadata group
-                    alpha_indices = isolate(input$alpha_indices) # Pass selected alpha indices
+                    data = isolate(uploaded_otu_table()),
+                    metadata = isolate(uploaded_metadata()),
+                    tax_level = isolate(input$tax_level),
+                    metadata_group = isolate(input$metadata_group),
+                    alpha_indices = isolate(input$alpha_indices)
                 ),
                 envir = new.env(parent = globalenv())
             )
@@ -271,8 +271,10 @@ renderDataTable({
     req(uploaded_otu_table(), input$tax_level)
     otu_data <- uploaded_otu_table()
 
+    # Create SampleID column from rownames and then select columns
     otu_table_display <- otu_data %>%
-        select(SampleID = ID, input$tax_level, everything())
+        mutate(SampleID = rownames(otu_data)) %>% # Create SampleID from rownames
+        select(SampleID, input$tax_level, everything()) # Select SampleID, tax level, and all other columns
 
     datatable(otu_table_display,
         options = list(pageLength = 10, scrollX = TRUE)
