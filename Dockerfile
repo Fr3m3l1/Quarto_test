@@ -1,7 +1,7 @@
 FROM analythium/r2u-quarto:20.04
 
 # Install LaTeX at the OS level
-RUN apt-get update && apt-get install -y \
+RUN apt-get update -y --allow-releaseinfo-change && apt-get install -y \
     texlive-latex-base \
     texlive-fonts-base \
     texlive-extra-utils \
