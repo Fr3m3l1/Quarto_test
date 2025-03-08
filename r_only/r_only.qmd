@@ -1,6 +1,6 @@
 ---
-title: "Palmer Penguins"
-author: "Cobblepot Analytics"
+title: "Microbiome Data Explorer MVP"
+author: "Your Name"
 output: flexdashboard::flex_dashboard
 runtime: shiny
 ---
@@ -10,185 +10,274 @@ library(flexdashboard)
 library(shiny)
 library(ggplot2)
 library(dplyr)
-library(palmerpenguins)
+library(DT)
+library(vegan)
+library(reshape2)
+library(gridExtra)
+library(rmarkdown)
 
-# Load penguins dataset
-data(penguins)
+# **Increase maximum upload size to 10MB (adjust as needed)**
+options(shiny.maxRequestSize = 10 * 1024^2)
+
+# Define static choices (will be updated dynamically)
+taxonomic_levels <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+alpha_diversity_indices <- c("Chao1", "Simpson", "Shannon")
 ```
 
 # {.sidebar}
 
 ```{r}
-# Species filter
-checkboxGroupInput("species", "Species:",
-    choices = unique(penguins$species),
-    selected = unique(penguins$species)
+fileInput("otu_file", "Upload OTU Table (CSV):", accept = ".csv")
+fileInput("metadata_file", "Upload Metadata (CSV):", accept = ".csv")
+
+hr() # Horizontal rule for visual separation
+strong("Data Filters")
+br()
+br()
+
+# Dynamic Taxonomic Level Input (UI defined in server)
+uiOutput("tax_level_ui")
+
+# Dynamic Metadata Grouping Input (UI defined in server)
+uiOutput("metadata_group_ui")
+
+# Alpha Diversity Indices Input (Static)
+checkboxGroupInput("alpha_indices", "Alpha Diversity Indices:",
+    choices = alpha_diversity_indices,
+    selected = "Shannon"
 )
 
-# Island filter
-checkboxGroupInput("islands", "Islands:",
-    choices = unique(penguins$island),
-    selected = unique(penguins$island)
-)
-
-# Distribution type
-selectInput("dist", "Distribution:", choices = c("kde", "hist"))
-
-# Rug marks toggle
-checkboxInput("rug", "Show rug marks", value = FALSE)
-
-# PDF Export
+hr() # Separator before download
 downloadLink("download_report", "Export Report as PDF")
+```
 
-
-filtered_data <- reactive({
-    req(input$species, input$islands)
-
-    penguins %>%
-        filter(
-            species %in% input$species,
-            island %in% input$islands
-        ) %>%
-        na.omit()
+```{r}
+# Reactive data for OTU table
+uploaded_otu_table <- reactive({
+    req(input$otu_file)
+    tryCatch(
+        {
+            read.csv(input$otu_file$datapath, row.names = 1, stringsAsFactors = FALSE)
+        },
+        error = function(e) {
+            validate(need(FALSE, "Invalid OTU Table CSV file. Please upload a valid CSV."))
+            NULL
+        }
+    )
 })
 
-# **DELAYED downloadHandler INITIALIZATION using observeEvent**
-observeEvent(filtered_data(), { # Trigger when filtered_data() is available
+# Reactive data for metadata
+uploaded_metadata <- reactive({
+    req(input$metadata_file)
+    tryCatch(
+        {
+            read.csv(input$metadata_file$datapath, stringsAsFactors = FALSE)
+        },
+        error = function(e) {
+            validate(need(FALSE, "Invalid Metadata CSV file. Please upload a valid CSV."))
+            NULL
+        }
+    )
+})
+
+# Reactive taxonomic levels (dynamic choices)
+reactive_taxonomic_levels <- reactive({
+    otu_data <- uploaded_otu_table()
+    if (!is.null(otu_data)) {
+        tax_cols <- intersect(taxonomic_levels, names(otu_data))
+        return(tax_cols)
+    } else {
+        return(NULL)
+    }
+})
+
+# Reactive metadata columns (dynamic choices)
+reactive_metadata_cols <- reactive({
+    metadata_data <- uploaded_metadata()
+    if (!is.null(metadata_data)) {
+        return(names(metadata_data)[-1])
+    } else {
+        return(NULL)
+    }
+})
+
+# Dynamic UI outputs for selectors (in sidebar)
+output$tax_level_ui <- renderUI({
+    selectInput("tax_level", "Taxonomic Level:",
+        choices = reactive_taxonomic_levels(),
+        selected = if (!is.null(reactive_taxonomic_levels())) reactive_taxonomic_levels()[1] else NULL
+    )
+})
+
+output$metadata_group_ui <- renderUI({
+    selectInput("metadata_group", "Group by Metadata:",
+        choices = reactive_metadata_cols(),
+        selected = if (!is.null(reactive_metadata_cols())) reactive_metadata_cols()[1] else NULL
+    )
+})
+```
+
+```{r}
+observeEvent(uploaded_otu_table(), {
     output$download_report <- downloadHandler(
         filename = function() {
-            paste0("penguins-report-", Sys.Date(), ".pdf")
+            paste0("microbiome-report-", Sys.Date(), ".pdf") # Changed filename
         },
         content = function(file) {
-            # Temporäre Rmd-Datei erstellen
             temp_report <- tempfile(fileext = ".Rmd")
 
-            # Rmd-Content Template zeilenweise definieren
+            # Rmd-Content Template
             report_content <- paste(
                 "---",
-                "title: 'Penguins Analysis Report'",
+                "title: 'Microbiome Analysis Report'",
                 "output: pdf_document",
                 "params:",
-                "  data: NA",
-                "  dist: 'kde'",
-                "  rug: FALSE",
+                "  data: NA", # Declared parameter 'data'
+                "  metadata: NA", # Declared parameter 'metadata'
+                "  tax_level: 'Genus'", # Declared parameter 'tax_level'
+                "  metadata_group: 'Timepoint'", # Declared parameter 'metadata_group'
+                "  alpha_indices: c('Shannon')", # Declared parameter 'alpha_indices'
                 "---",
                 "",
                 "```{r setup_report, include=FALSE}",
                 "library(ggplot2)",
                 "library(dplyr)",
-                "data <- params$data",
-                "dist <- params$dist",
-                "rug <- params$rug",
+                "library(vegan)",
+                "library(reshape2)",
+                "library(gridExtra)",
+                "otu_data <- params$data", # Get OTU data from params
+                "metadata_data <- params$metadata", # Get metadata from params
+                "tax_level <- params$tax_level",
+                "metadata_group <- params$metadata_group",
+                "alpha_indices <- params$alpha_indices",
+                "count_cols <- names(otu_data)[grepl('^[AB]\\\\d{4}$', names(otu_data))]", # Assuming count columns start with A or B and 4 digits
                 "```",
                 "",
-                "## Bill Analysis",
+                "## Alpha Diversity Analysis",
                 "",
-                "```{r, echo=FALSE}",
-                "# Depth plot",
-                "p_depth <- ggplot(data, aes(x = bill_depth_mm, fill = species)) +",
-                "  theme_minimal() +",
-                "  (if(dist == 'hist') geom_histogram(position = 'identity', alpha = 0.5)",
-                "   else geom_density(alpha = 0.5)) +",
-                "  (if(rug) geom_rug()) +",
-                "  labs(title = 'Bill Depth Distribution')",
-                "",
-                "# Length plot",
-                "p_length <- ggplot(data, aes(x = bill_length_mm, fill = species)) +",
-                "  theme_minimal() +",
-                "  (if(dist == 'hist') geom_histogram(position = 'identity', alpha = 0.5)",
-                "   else geom_density(alpha = 0.5)) +",
-                "  (if(rug) geom_rug()) +",
-                "  labs(title = 'Bill Length Distribution')",
-                "",
-                "gridExtra::grid.arrange(p_depth, p_length, ncol = 1)",
+                "```{r alpha_div_plots_pdf, echo=FALSE, fig.width=8, fig.height=6}",
+                "# Prepare data for diversity calculation in PDF report",
+                "tax_level_data <- otu_data %>% select(all_of(tax_level))", # Select taxonomic level
+                "count_data <- otu_data %>% select(all_of(count_cols))", # Select count columns
+
+                "# Calculate Alpha Diversity (in PDF report)",
+                "alpha_div_results_pdf <- data.frame(SampleID = colnames(count_data))",
+                "if ('Chao1' %in% alpha_indices) { alpha_div_results_pdf$Chao1 <- estimateR(t(count_data), model = 'Chao1')[1,] }",
+                "if ('Simpson' %in% alpha_indices) { alpha_div_results_pdf$Simpson <- diversity(t(count_data), index = 'simpson') }",
+                "if ('Shannon' %in% alpha_indices) { alpha_div_results_pdf$Shannon <- diversity(t(count_data), index = 'shannon') }",
+                "# Merge with metadata (in PDF report)",
+                "merged_data_pdf <- merge(alpha_div_results_pdf, metadata_data, by.x = 'SampleID', by.y = 'SampleID')",
+                "# Prepare plot data for PDF report",
+                "plot_data_long_pdf <- merged_data_pdf %>%",
+                "  select(SampleID, metadata_group, alpha_indices) %>%",
+                "  melt(id.vars = c('SampleID', metadata_group),",
+                "       variable.name = 'Diversity_Index',",
+                "       value.name = 'Diversity_Value')",
+                "# Generate and print boxplots in PDF report",
+                "plots <- lapply(alpha_indices, function(index) {", # Loop through selected indices
+                "  ggplot(plot_data_long_pdf %>% filter(Diversity_Index == index), ",
+                "         aes_string(x = metadata_group, y = 'Diversity_Value', fill = metadata_group)) +",
+                "    geom_boxplot() +",
+                "    theme_minimal() +",
+                "    labs(title = paste('Alpha Diversity (', index, ') at', tax_level, 'Level'),",
+                "         x = metadata_group, y = 'Diversity Value')",
+                "})",
+                "do.call(grid.arrange, c(plots, ncol = 1))", # Arrange plots in a column
                 "```",
                 "",
-                "## Data Summary",
+                "## Data Summary (First Few Rows of OTU Table)",
                 "",
-                "```{r, echo=FALSE}",
-                "knitr::kable(head(data))",
+                "```{r data_summary_table_pdf, echo=FALSE}",
+                "knitr::kable(head(otu_data))", # Display first few rows of uploaded OTU table in PDF
                 "```",
                 sep = "\n"
             )
 
             writeLines(report_content, temp_report)
 
-            # Report mit den aktuellen Parametern rendern
             rmarkdown::render(
                 input = temp_report,
                 output_file = file,
                 params = list(
-                    data = isolate(filtered_data()),
-                    dist = isolate(input$dist),
-                    rug = isolate(input$rug)
+                    data = isolate(uploaded_otu_table()), # Pass uploaded OTU data
+                    metadata = isolate(uploaded_metadata()), # Pass uploaded metadata
+                    tax_level = isolate(input$tax_level), # Pass selected tax level
+                    metadata_group = isolate(input$metadata_group), # Pass selected metadata group
+                    alpha_indices = isolate(input$alpha_indices) # Pass selected alpha indices
                 ),
                 envir = new.env(parent = globalenv())
             )
         }
     )
 })
+
 ```
 
-# Plots
 
-## Bill Depth
+# Dashboard Content
+
+## Alpha Diversity
 
 ```{r}
 renderPlot({
-    req(filtered_data())
-    p <- ggplot(filtered_data(), aes(x = bill_depth_mm, fill = species)) +
-        theme_minimal()
+    req(input$tax_level, input$metadata_group, input$alpha_indices, uploaded_otu_table(), uploaded_metadata())
 
-    if (input$dist == "hist") {
-        p <- p + geom_histogram(position = "identity", alpha = 0.5)
-    } else {
-        p <- p + geom_density(alpha = 0.5)
+    otu_data <- uploaded_otu_table()
+    metadata_data <- uploaded_metadata()
+
+    tax_level_data <- otu_data %>%
+        select(all_of(input$tax_level))
+    count_data <- otu_data %>%
+        select(starts_with("A"), starts_with("B"))
+
+    alpha_div_results <- data.frame(SampleID = colnames(count_data))
+
+    if ("Chao1" %in% input$alpha_indices) {
+        alpha_div_results$Chao1 <- estimateR(t(count_data), model = "Chao1")[1, ]
+    }
+    if ("Simpson" %in% input$alpha_indices) {
+        alpha_div_results$Simpson <- diversity(t(count_data), index = "simpson")
+    }
+    if ("Shannon" %in% input$alpha_indices) {
+        alpha_div_results$Shannon <- diversity(t(count_data), index = "shannon")
     }
 
-    if (input$rug) {
-        p <- p + geom_rug()
-    }
+    merged_data <- merge(alpha_div_results, metadata_data, by.x = "SampleID", by.y = "SampleID")
 
-    p + labs(x = "Bill Depth (mm)", y = "Count")
+    plot_data_long <- merged_data %>%
+        select(SampleID, input$metadata_group, input$alpha_indices) %>%
+        melt(
+            id.vars = c("SampleID", input$metadata_group),
+            variable.name = "Diversity_Index",
+            value.name = "Diversity_Value"
+        )
+
+    ggplot(plot_data_long, aes_string(x = input$metadata_group, y = "Diversity_Value", fill = input$metadata_group)) +
+        geom_boxplot() +
+        facet_wrap(~Diversity_Index, scales = "free_y") +
+        theme_minimal() +
+        labs(
+            title = paste("Alpha Diversity at", input$tax_level, "Level"),
+            x = input$metadata_group,
+            y = "Diversity Value"
+        )
 })
 ```
 
-```{r}
-div(
-    style = "text-align: center; margin-top: 20px;",
-    downloadButton("download_report", "Download Report as PDF",
-        class = "btn-primary", style = "width: 80%;"
-    )
-)
-```
-
-## Bill Length
-
-```{r}
-renderPlot({
-    req(filtered_data())
-    p <- ggplot(filtered_data(), aes(x = bill_length_mm, fill = species)) +
-        theme_minimal()
-
-    if (input$dist == "hist") {
-        p <- p + geom_histogram(position = "identity", alpha = 0.5)
-    } else {
-        p <- p + geom_density(alpha = 0.5)
-    }
-
-    if (input$rug) {
-        p <- p + geom_rug()
-    }
-
-    p + labs(x = "Bill Length (mm)", y = "Count")
-})
-```
-
-# Data
+# Data Table
 
 ```{r}
 renderDataTable({
-    req(filtered_data())
-    filtered_data()
+    req(uploaded_otu_table(), input$tax_level)
+    otu_data <- uploaded_otu_table()
+
+    otu_table_display <- otu_data %>%
+        select(SampleID = ID, input$tax_level, everything())
+
+    datatable(otu_table_display,
+        options = list(pageLength = 10, scrollX = TRUE)
+    )
 })
 ```
+
+
