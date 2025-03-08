@@ -51,6 +51,82 @@ filtered_data <- reactive({
         ) %>%
         na.omit()
 })
+
+# **DELAYED downloadHandler INITIALIZATION using observeEvent**
+observeEvent(filtered_data(), { # Trigger when filtered_data() is available
+    output$download_report <- downloadHandler(
+        filename = function() {
+            paste0("penguins-report-", Sys.Date(), ".pdf")
+        },
+        content = function(file) {
+            # Temporäre Rmd-Datei erstellen
+            temp_report <- tempfile(fileext = ".Rmd")
+
+            # Rmd-Content Template zeilenweise definieren
+            report_content <- paste(
+                "---",
+                "title: 'Penguins Analysis Report'",
+                "output: pdf_document",
+                "params:",
+                "  data: NA",
+                "  dist: 'kde'",
+                "  rug: FALSE",
+                "---",
+                "",
+                "```{r setup_report, include=FALSE}",
+                "library(ggplot2)",
+                "library(dplyr)",
+                "data <- params$data",
+                "dist <- params$dist",
+                "rug <- params$rug",
+                "```",
+                "",
+                "## Bill Analysis",
+                "",
+                "```{r, echo=FALSE}",
+                "# Depth plot",
+                "p_depth <- ggplot(data, aes(x = bill_depth_mm, fill = species)) +",
+                "  theme_minimal() +",
+                "  (if(dist == 'hist') geom_histogram(position = 'identity', alpha = 0.5)",
+                "   else geom_density(alpha = 0.5)) +",
+                "  (if(rug) geom_rug()) +",
+                "  labs(title = 'Bill Depth Distribution')",
+                "",
+                "# Length plot",
+                "p_length <- ggplot(data, aes(x = bill_length_mm, fill = species)) +",
+                "  theme_minimal() +",
+                "  (if(dist == 'hist') geom_histogram(position = 'identity', alpha = 0.5)",
+                "   else geom_density(alpha = 0.5)) +",
+                "  (if(rug) geom_rug()) +",
+                "  labs(title = 'Bill Length Distribution')",
+                "",
+                "gridExtra::grid.arrange(p_depth, p_length, ncol = 1)",
+                "```",
+                "",
+                "## Data Summary",
+                "",
+                "```{r, echo=FALSE}",
+                "knitr::kable(head(data))",
+                "```",
+                sep = "\n"
+            )
+
+            writeLines(report_content, temp_report)
+
+            # Report mit den aktuellen Parametern rendern
+            rmarkdown::render(
+                input = temp_report,
+                output_file = file,
+                params = list(
+                    data = isolate(filtered_data()),
+                    dist = isolate(input$dist),
+                    rug = isolate(input$rug)
+                ),
+                envir = new.env(parent = globalenv())
+            )
+        }
+    )
+})
 ```
 
 # Plots
@@ -115,83 +191,4 @@ renderDataTable({
     req(filtered_data())
     filtered_data()
 })
-```
-
-
-```{r}
-# PDF Report Generation
-output$download_report <- downloadHandler(
-    filename = function() {
-        paste0("penguins-report-", Sys.Date(), ".pdf")
-    },
-    content = function(file) {
-        # Temporäre Rmd-Datei erstellen
-        temp_report <- tempfile(fileext = ".Rmd")
-
-        # Rmd-Content Template zeilenweise definieren
-        report_content <- paste(
-            "---",
-            "title: 'Penguins Analysis Report'",
-            "output: pdf_document",
-            "params:",
-            "  data: NA",
-            "  dist: 'kde'",
-            "  rug: FALSE",
-            "---",
-            "",
-            "```{r setup_report, include=FALSE}",
-            "library(ggplot2)",
-            "library(dplyr)",
-            "data <- params$data",
-            "dist <- params$dist",
-            "rug <- params$rug",
-            "```",
-            "",
-            "## Bill Analysis",
-            "",
-            "```{r, echo=FALSE}",
-            "# Depth plot",
-            "p_depth <- ggplot(data, aes(x = bill_depth_mm, fill = species)) +",
-            "  theme_minimal() +",
-            "  (if(dist == 'hist') geom_histogram(position = 'identity', alpha = 0.5)",
-            "   else geom_density(alpha = 0.5)) +",
-            "  (if(rug) geom_rug()) +",
-            "  labs(title = 'Bill Depth Distribution')",
-            "",
-            "# Length plot",
-            "p_length <- ggplot(data, aes(x = bill_length_mm, fill = species)) +",
-            "  theme_minimal() +",
-            "  (if(dist == 'hist') geom_histogram(position = 'identity', alpha = 0.5)",
-            "   else geom_density(alpha = 0.5)) +",
-            "  (if(rug) geom_rug()) +",
-            "  labs(title = 'Bill Length Distribution')",
-            "",
-            "gridExtra::grid.arrange(p_depth, p_length, ncol = 1)",
-            "```",
-            "",
-            "## Data Summary",
-            "",
-            "```{r, echo=FALSE}",
-            "knitr::kable(head(data))",
-            "```",
-            sep = "\n"
-        )
-
-        writeLines(report_content, temp_report)
-
-        # Report mit den aktuellen Parametern rendern
-        rmarkdown::render(
-            input = temp_report,
-            output_file = file,
-            params = list(
-                data = isolate(filtered_data()),
-                dist = isolate(input$dist),
-                rug = isolate(input$rug)
-            ),
-            envir = new.env(parent = globalenv())
-        )
-    }
-)
-
-
 ```
