@@ -1,7 +1,6 @@
 FROM analythium/r2u-quarto:20.04
 
-RUN apt-get update && apt-get install -y texlive-latex-base
-
+RUN apt-get update && apt-get install -y texlive-latex-base lmodern
 
 # Erstelle einen nicht-root Benutzer
 RUN addgroup --system app && adduser --system --ingroup app app
